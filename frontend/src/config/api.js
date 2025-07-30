@@ -42,16 +42,35 @@ export const apiRequest = async (endpoint, options = {}) => {
     },
   }
 
+  console.log('=== INÍCIO DA REQUISIÇÃO API ===')
+  console.log('Endpoint:', endpoint)
+  console.log('Método:', options.method || 'GET')
+  console.log('Headers:', config.headers)
+  console.log('Body:', options.body)
+
   try {
+    console.log('=== FAZENDO FETCH ===')
     const response = await fetch(endpoint, config)
+    console.log('=== RESPOSTA RECEBIDA ===')
+    console.log('Status:', response.status)
+    console.log('Status Text:', response.statusText)
+    console.log('Headers:', Object.fromEntries(response.headers.entries()))
+    
     const data = await response.json()
+    console.log('=== DADOS DA RESPOSTA ===')
+    console.log('Data:', data)
     
     if (!response.ok) {
+      console.error('=== ERRO NA RESPOSTA ===')
+      console.error('Status não OK:', response.status)
+      console.error('Mensagem de erro:', data.message)
       throw new Error(data.message || 'Erro na requisição')
     }
     
+    console.log('=== REQUISIÇÃO BEM-SUCEDIDA ===')
     return data
   } catch (error) {
+    console.error('=== ERRO NA REQUISIÇÃO API ===')
     console.error('API Error:', error)
     throw error
   }

@@ -6,21 +6,42 @@ const PagBankCheckout = ({ cartItems, total, customerData, onSuccess, onError })
   const navigate = useNavigate()
   const { isLoading, error, createCheckout } = usePagBankCheckout()
 
+  // Log para verificar se o componente está sendo renderizado
+  console.log('PagBankCheckout renderizado com:', { cartItems, total, customerData })
+
   const handlePagBankCheckout = async () => {
+    console.log('=== INÍCIO DO CHECKOUT PAGBANK ===')
     console.log('Iniciando checkout PagBank...')
+    console.log('Dados do cliente recebidos:', customerData)
+    console.log('Itens do carrinho:', cartItems)
+    console.log('Total:', total)
     
     // Validar se os dados do cliente estão preenchidos
     if (customerData) {
       const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'cpf', 'address', 'city', 'state', 'zipCode']
       const missingFields = requiredFields.filter(field => !customerData[field])
       
+      console.log('Campos obrigatórios:', requiredFields)
+      console.log('Campos preenchidos:', Object.keys(customerData).filter(key => customerData[key]))
+      console.log('Campos faltando:', missingFields)
+      
       if (missingFields.length > 0) {
-        onError?.('Por favor, preencha todos os dados de entrega antes de prosseguir.')
+        const errorMsg = `Por favor, preencha todos os dados de entrega antes de prosseguir. Campos faltando: ${missingFields.join(', ')}`
+        console.error('Erro de validação:', errorMsg)
+        onError?.(errorMsg)
         return
       }
+    } else {
+      console.warn('customerData não foi fornecido')
+      onError?.('Dados do cliente não fornecidos')
+      return
     }
 
+    console.log('=== VALIDAÇÃO PASSOU ===')
+
     try {
+      console.log('=== PREPARANDO DADOS DO CHECKOUT ===')
+      
       // Converter itens do carrinho para formato do PagBank
       const items = cartItems.map(item => ({
         id: item.id,
@@ -28,6 +49,8 @@ const PagBankCheckout = ({ cartItems, total, customerData, onSuccess, onError })
         quantity: item.quantity,
         unit_amount: item.price
       }))
+
+      console.log('Itens convertidos:', items)
 
       // Dados do cliente do formulário
       const customer = customerData ? {
@@ -60,9 +83,20 @@ const PagBankCheckout = ({ cartItems, total, customerData, onSuccess, onError })
         }
       }
 
+      console.log('Dados do cliente preparados:', customer)
+
       // URL de redirecionamento após pagamento
       const redirect_url = `${window.location.origin}/payment/success`
+      console.log('URL de redirecionamento:', redirect_url)
 
+      console.log('Dados do checkout a serem enviados:', {
+        items,
+        customer,
+        redirect_url
+      })
+
+      console.log('=== CHAMANDO HOOK CREATE CHECKOUT ===')
+      
       // Criar checkout usando o hook
       const checkout = await createCheckout({
         items,
@@ -70,22 +104,31 @@ const PagBankCheckout = ({ cartItems, total, customerData, onSuccess, onError })
         redirect_url
       })
 
+      console.log('=== CHECKOUT CRIADO COM SUCESSO ===')
       console.log('Checkout criado:', checkout)
 
       if (checkout) {
+        console.log('=== EXECUTANDO CALLBACKS ===')
         onSuccess?.(checkout)
         console.log('Redirecionando para:', checkout.payment_url)
+        
         // Redirecionar para o link de pagamento do PagBank
         try {
+          console.log('=== TENTANDO REDIRECIONAMENTO ===')
           window.location.href = checkout.payment_url
-          console.log('Redirecionamento executado')
+          console.log('Redirecionamento executado com sucesso')
         } catch (error) {
           console.error('Erro no redirecionamento:', error)
           // Fallback: tentar abrir em nova aba
+          console.log('Tentando abrir em nova aba...')
           window.open(checkout.payment_url, '_blank')
         }
+      } else {
+        console.error('Checkout não foi criado corretamente')
+        onError?.('Erro ao criar checkout')
       }
     } catch (error) {
+      console.error('=== ERRO NO CHECKOUT PAGBANK ===')
       console.error('Erro no checkout PagBank:', error)
       onError?.(error.message || 'Erro de conexão')
     }

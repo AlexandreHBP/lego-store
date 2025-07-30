@@ -21,18 +21,28 @@ const PaymentSuccess = () => {
   }, [reference_id])
 
   const checkCheckoutStatus = async () => {
+    console.log('=== VERIFICANDO STATUS DO CHECKOUT ===')
+    console.log('Reference ID:', reference_id)
+    console.log('Endpoint:', API_ENDPOINTS.PAYMENT_CHECKOUT_STATUS(reference_id))
+    
     try {
+      console.log('Fazendo requisição para verificar status...')
       const result = await apiRequest(API_ENDPOINTS.PAYMENT_CHECKOUT_STATUS(reference_id))
+      console.log('Resposta da verificação de status:', result)
 
       if (result.success) {
+        console.log('Status obtido com sucesso:', result.checkout)
         setCheckoutStatus(result.checkout)
       } else {
+        console.error('Erro na resposta:', result.message)
         setError(result.message || 'Erro ao verificar status do pagamento')
       }
     } catch (error) {
+      console.error('=== ERRO AO VERIFICAR STATUS ===')
       console.error('Erro ao verificar status:', error)
       setError('Erro de conexão ao verificar status do pagamento')
     } finally {
+      console.log('Finalizando verificação de status')
       setIsLoading(false)
     }
   }

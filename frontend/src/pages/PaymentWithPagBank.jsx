@@ -295,6 +295,7 @@ const PaymentWithPagBank = () => {
               <PagBankCheckout
                 cartItems={cartItems}
                 total={total}
+                customerData={formData}
                 onSuccess={handlePagBankSuccess}
                 onError={handlePagBankError}
               />

@@ -61,7 +61,7 @@ const createPagBankCheckout = async (checkoutData, accessToken) => {
       links: [
         {
           rel: 'PAY',
-          href: `http://localhost:3000/payment/success?reference_id=${checkoutData.reference_id}`,
+          href: `${checkoutData.redirect_url}?reference_id=${checkoutData.reference_id}`,
           method: 'GET'
         }
       ],
@@ -80,6 +80,9 @@ const createPagBankCheckout = async (checkoutData, accessToken) => {
 
 // Rota para criar checkout
 router.post('/checkout', async (req, res) => {
+  console.log('=== INÍCIO DA ROTA /checkout ===')
+  console.log('Body recebido:', JSON.stringify(req.body, null, 2))
+  
   try {
     const {
       reference_id,
@@ -88,20 +91,37 @@ router.post('/checkout', async (req, res) => {
       redirect_url
     } = req.body
 
+    console.log('=== VALIDANDO DADOS ===')
+    console.log('Reference ID:', reference_id)
+    console.log('Items:', items)
+    console.log('Customer:', customer)
+    console.log('Redirect URL:', redirect_url)
+
     // Validar dados obrigatórios
     if (!reference_id || !items || !customer) {
+      console.error('=== ERRO DE VALIDAÇÃO ===')
+      console.error('Dados obrigatórios faltando:', {
+        reference_id: !!reference_id,
+        items: !!items,
+        customer: !!customer
+      })
       return res.status(400).json({
         success: false,
         message: 'Dados obrigatórios: reference_id, items, customer'
       })
     }
 
+    console.log('=== CALCULANDO VALOR TOTAL ===')
     // Calcular valor total
     const total_amount = items.reduce((sum, item) => sum + (item.unit_amount * item.quantity), 0)
+    console.log('Total calculado:', total_amount)
 
+    console.log('=== OBTENDO TOKEN PAGBANK ===')
     // Obter token de acesso do PagBank
     const accessToken = await getPagBankToken()
+    console.log('Token obtido:', accessToken ? 'SUCCESS' : 'FAILED')
 
+    console.log('=== PREPARANDO DADOS DO CHECKOUT ===')
     // Criar checkout no PagBank
     const checkoutData = {
       reference_id,
@@ -110,9 +130,13 @@ router.post('/checkout', async (req, res) => {
       total_amount,
       redirect_url
     }
+    console.log('Dados do checkout:', checkoutData)
 
+    console.log('=== CHAMANDO CREATE PAGBANK CHECKOUT ===')
     const pagbankCheckout = await createPagBankCheckout(checkoutData, accessToken)
+    console.log('Checkout PagBank criado:', pagbankCheckout.id)
 
+    console.log('=== SALVANDO NO BANCO DE DADOS ===')
     // Salvar checkout no banco de dados (mockado para desenvolvimento)
     console.log('Salvando checkout mockado...')
     
@@ -121,8 +145,8 @@ router.post('/checkout', async (req, res) => {
       id: `mock_checkout_${Date.now()}`,
       reference_id,
       pagbank_order_id: pagbankCheckout.id,
-      customer_data: JSON.stringify(customer),
-      items: JSON.stringify(items),
+      customer_data: customer,
+      items: items,
       total_amount,
       status: 'pending',
       redirect_url
@@ -130,17 +154,22 @@ router.post('/checkout', async (req, res) => {
     
     console.log('Checkout salvo com sucesso:', checkoutRecord.id)
 
+    console.log('=== PROCURANDO LINK DE PAGAMENTO ===')
     // Encontrar link de pagamento
     const paymentLink = pagbankCheckout.links?.find(link => link.rel === 'PAY')
+    console.log('Links disponíveis:', pagbankCheckout.links)
+    console.log('Payment link encontrado:', paymentLink)
     
     if (!paymentLink) {
+      console.error('=== ERRO: LINK DE PAGAMENTO NÃO ENCONTRADO ===')
       return res.status(500).json({
         success: false,
         message: 'Link de pagamento não encontrado'
       })
     }
 
-    return res.json({
+    console.log('=== PREPARANDO RESPOSTA ===')
+    const response = {
       success: true,
       message: 'Checkout criado com sucesso',
       checkout: {
@@ -150,9 +179,14 @@ router.post('/checkout', async (req, res) => {
         status: 'pending',
         total_amount
       }
-    })
+    }
+    console.log('Resposta final:', response)
+
+    console.log('=== ENVIANDO RESPOSTA ===')
+    return res.json(response)
 
   } catch (error) {
+    console.error('=== ERRO NA ROTA /checkout ===')
     console.error('Erro ao criar checkout:', error)
     return res.status(500).json({
       success: false,
@@ -167,27 +201,29 @@ router.get('/checkout/:reference_id', async (req, res) => {
   try {
     const { reference_id } = req.params
 
-    // Buscar checkout no banco de dados (mockado)
+    // Buscar checkout no banco de dados (mockado para desenvolvimento)
     console.log('Buscando checkout mockado:', reference_id)
     
     // Simular checkout encontrado
     const checkout = {
       reference_id,
-      status: 'pending',
-      total_amount: 799.99,
+      status: 'paid', // Mudando de 'pending' para 'paid' para simular pagamento aprovado
+      total_amount: 99.99,
       created_at: new Date().toISOString(),
-      customer_data: JSON.stringify({
-        name: 'João Silva',
-        email: 'joao@exemplo.com'
-      }),
-      items: JSON.stringify([
+      customer_data: {
+        name: 'Teste Cliente',
+        email: 'teste@exemplo.com',
+        tax_id: '12345678901',
+        phone: '11999999999'
+      },
+      items: [
         {
           id: 1,
-          name: 'LEGO Star Wars Millennium Falcon',
+          name: 'LEGO Teste',
           quantity: 1,
-          unit_amount: 799.99
+          unit_amount: 99.99
         }
-      ])
+      ]
     }
 
     // Se necessário, consultar status no PagBank (mockado)
@@ -218,8 +254,8 @@ router.get('/checkout/:reference_id', async (req, res) => {
         status: checkout.status,
         total_amount: checkout.total_amount,
         created_at: checkout.created_at,
-        customer_data: JSON.parse(checkout.customer_data),
-        items: JSON.parse(checkout.items)
+        customer_data: checkout.customer_data,
+        items: checkout.items
       }
     })
 

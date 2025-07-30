@@ -11,10 +11,18 @@
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
     "start": "cd backend && npm start"
   },
-  "keywords": ["react", "tailwind", "ecommerce", "dark-mode"],
+  "keywords": [
+    "react",
+    "tailwind",
+    "ecommerce",
+    "dark-mode"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
   }
-} 
+}
