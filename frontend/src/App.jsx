@@ -14,6 +14,7 @@ import Contact from './pages/Contact'
 import Account from './pages/Account'
 import AdminPanel from './pages/AdminPanel'
 import Payment from './pages/Payment'
+import PaymentSuccess from './pages/PaymentSuccess'
 
 function App() {
   console.log('App component rendering...')
@@ -36,6 +37,7 @@ function App() {
                   <Route path="/account" element={<Account />} />
                   <Route path="/admin" element={<AdminPanel />} />
                   <Route path="/payment" element={<Payment />} />
+                  <Route path="/payment/success" element={<PaymentSuccess />} />
                 </Routes>
               </main>
               <Footer />

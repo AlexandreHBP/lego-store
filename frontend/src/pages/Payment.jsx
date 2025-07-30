@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, CreditCard, Truck, CheckCircle, Lock } from 'lucide-react'
+import { ArrowLeft, CreditCard, Truck, CheckCircle, Lock, ExternalLink } from 'lucide-react'
 import { useCart } from '../contexts/CartContext'
 import { useAuth } from '../contexts/AuthContext'
+import PagBankCheckout from '../components/PagBankCheckout'
 
 const Payment = () => {
   const navigate = useNavigate()
@@ -16,6 +17,7 @@ const Payment = () => {
     phone: '',
     cpf: '',
     address: '',
+    complement: '',
     city: '',
     state: '',
     zipCode: '',
@@ -30,6 +32,8 @@ const Payment = () => {
   const [orderComplete, setOrderComplete] = useState(false)
   const [countdown, setCountdown] = useState(600) // 10 minutos em segundos
   const [orderNumber, setOrderNumber] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('pagbank')
+  const [pagbankError, setPagbankError] = useState('')
 
   const shipping = 15.99
   const total = getCartSubtotal() + shipping
@@ -42,8 +46,24 @@ const Payment = () => {
     }))
   }
 
+  const handlePagBankSuccess = (checkout) => {
+    console.log('Checkout PagBank criado:', checkout)
+    // O redirecionamento é feito automaticamente pelo componente
+  }
+
+  const handlePagBankError = (error) => {
+    console.error('Erro no checkout PagBank:', error)
+    setPagbankError(error)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (paymentMethod === 'pagbank') {
+      // O componente PagBankCheckout já trata o checkout
+      return
+    }
+
     setIsProcessing(true)
 
     try {
@@ -306,7 +326,7 @@ const Payment = () => {
                          required
                        />
                      </div>
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Endereço
                       </label>
@@ -316,8 +336,21 @@ const Payment = () => {
                         value={formData.address}
                         onChange={handleInputChange}
                         className="input"
-                        placeholder="Rua, número, complemento"
+                        placeholder="Rua, número"
                         required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Complemento (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        name="complement"
+                        value={formData.complement}
+                        onChange={handleInputChange}
+                        className="input"
+                        placeholder="Apartamento, bloco, etc."
                       />
                     </div>
                     <div>
@@ -377,11 +410,26 @@ const Payment = () => {
                     <div className="flex items-center space-x-3">
                       <input
                         type="radio"
+                        id="pagbank"
+                        name="paymentMethod"
+                        value="pagbank"
+                        checked={paymentMethod === 'pagbank'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <label htmlFor="pagbank" className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
+                        <ExternalLink className="w-4 h-4 mr-2 text-blue-600" />
+                        PagBank (Recomendado)
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="radio"
                         id="credit"
                         name="paymentMethod"
                         value="credit"
-                        checked={formData.paymentMethod === 'credit'}
-                        onChange={handleInputChange}
+                        checked={paymentMethod === 'credit'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
                         className="w-4 h-4 text-black border-gray-300 focus:ring-black"
                       />
                       <label htmlFor="credit" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -394,8 +442,8 @@ const Payment = () => {
                         id="pix"
                         name="paymentMethod"
                         value="pix"
-                        checked={formData.paymentMethod === 'pix'}
-                        onChange={handleInputChange}
+                        checked={paymentMethod === 'pix'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
                         className="w-4 h-4 text-black border-gray-300 focus:ring-black"
                       />
                       <label htmlFor="pix" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -404,7 +452,7 @@ const Payment = () => {
                     </div>
                   </div>
 
-                  {formData.paymentMethod === 'credit' && (
+                  {paymentMethod === 'credit' && (
                     <div className="mt-6 space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -469,7 +517,7 @@ const Payment = () => {
                     </div>
                   )}
 
-                  {formData.paymentMethod === 'pix' && (
+                  {paymentMethod === 'pix' && (
                     <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <p className="text-sm text-gray-600 dark:text-gray-300">
                         O código PIX será gerado após a confirmação do pedido.
@@ -533,25 +581,47 @@ const Payment = () => {
                   </div>
                 </div>
 
-                {/* Botão de Finalizar */}
-                <button
-                  type="submit"
-                  onClick={handleSubmit}
-                  disabled={isProcessing}
-                  className="btn-primary w-full mb-4 flex items-center justify-center"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Processando...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4 mr-2" />
-                      Finalizar Compra
-                    </>
-                  )}
-                </button>
+                {/* Checkout PagBank */}
+                {paymentMethod === 'pagbank' && (
+                  <div className="mb-4">
+                    <PagBankCheckout
+                      cartItems={cartItems}
+                      total={total}
+                      customerData={formData}
+                      onSuccess={handlePagBankSuccess}
+                      onError={handlePagBankError}
+                    />
+                  </div>
+                )}
+
+                {/* Botão de Finalizar para outros métodos */}
+                {paymentMethod !== 'pagbank' && (
+                  <button
+                    type="submit"
+                    onClick={handleSubmit}
+                    disabled={isProcessing}
+                    className="btn-primary w-full mb-4 flex items-center justify-center"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-2" />
+                        Finalizar Compra
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Mensagem de erro do PagBank */}
+                {pagbankError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">{pagbankError}</p>
+                  </div>
+                )}
 
                 <div className="text-center">
                   <p className="text-xs text-gray-600 dark:text-gray-300">

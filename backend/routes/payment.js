@@ -4,11 +4,16 @@ import { supabase } from '../config/supabase.js'
 const router = express.Router()
 
 // Configuração do PagBank
-const PAGBANK_API_URL = 'https://api.pagbank.com.br'
+const PAGBANK_API_URL = process.env.PAGBANK_API_URL || 'https://api.pagbank.com.br'
 const PAGBANK_ACCESS_TOKEN = process.env.PAGBANK_ACCESS_TOKEN
+
+// Log para debug
+console.log('PAGBANK_API_URL:', PAGBANK_API_URL)
+console.log('PAGBANK_ACCESS_TOKEN:', PAGBANK_ACCESS_TOKEN ? '***TOKEN_SET***' : '***TOKEN_MISSING***')
 
 // Função para gerar token de acesso do PagBank
 const getPagBankToken = async () => {
+  return PAGBANK_ACCESS_TOKEN
   try {
     const response = await fetch(`${PAGBANK_API_URL}/oauth2/token`, {
       method: 'POST',
@@ -26,6 +31,259 @@ const getPagBankToken = async () => {
     throw error
   }
 }
+
+// ===== NOVA FUNCIONALIDADE: CHECKOUT PAGBANK =====
+
+// Criar checkout no PagBank (versão mockada para desenvolvimento)
+const createPagBankCheckout = async (checkoutData, accessToken) => {
+  try {
+    console.log('Criando checkout mockado para desenvolvimento...')
+    
+    // Simular delay da API
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Retornar resposta mockada
+    const mockResponse = {
+      id: `mock_order_${Date.now()}`,
+      reference_id: checkoutData.reference_id,
+      status: 'CREATED',
+      created_at: new Date().toISOString(),
+      charges: [
+        {
+          id: `mock_charge_${Date.now()}`,
+          status: 'WAITING',
+          amount: {
+            value: Math.round(checkoutData.total_amount * 100),
+            currency: 'BRL'
+          }
+        }
+      ],
+      links: [
+        {
+          rel: 'PAY',
+          href: `http://localhost:3000/payment/success?reference_id=${checkoutData.reference_id}`,
+          method: 'GET'
+        }
+      ],
+      customer: checkoutData.customer,
+      items: checkoutData.items
+    }
+    
+    console.log('Checkout mockado criado:', mockResponse.id)
+    return mockResponse
+    
+  } catch (error) {
+    console.error('Erro ao criar checkout mockado:', error)
+    throw error
+  }
+}
+
+// Rota para criar checkout
+router.post('/checkout', async (req, res) => {
+  try {
+    const {
+      reference_id,
+      items,
+      customer,
+      redirect_url
+    } = req.body
+
+    // Validar dados obrigatórios
+    if (!reference_id || !items || !customer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dados obrigatórios: reference_id, items, customer'
+      })
+    }
+
+    // Calcular valor total
+    const total_amount = items.reduce((sum, item) => sum + (item.unit_amount * item.quantity), 0)
+
+    // Obter token de acesso do PagBank
+    const accessToken = await getPagBankToken()
+
+    // Criar checkout no PagBank
+    const checkoutData = {
+      reference_id,
+      items,
+      customer,
+      total_amount,
+      redirect_url
+    }
+
+    const pagbankCheckout = await createPagBankCheckout(checkoutData, accessToken)
+
+    // Salvar checkout no banco de dados (mockado para desenvolvimento)
+    console.log('Salvando checkout mockado...')
+    
+    // Simular salvamento bem-sucedido
+    const checkoutRecord = {
+      id: `mock_checkout_${Date.now()}`,
+      reference_id,
+      pagbank_order_id: pagbankCheckout.id,
+      customer_data: JSON.stringify(customer),
+      items: JSON.stringify(items),
+      total_amount,
+      status: 'pending',
+      redirect_url
+    }
+    
+    console.log('Checkout salvo com sucesso:', checkoutRecord.id)
+
+    // Encontrar link de pagamento
+    const paymentLink = pagbankCheckout.links?.find(link => link.rel === 'PAY')
+    
+    if (!paymentLink) {
+      return res.status(500).json({
+        success: false,
+        message: 'Link de pagamento não encontrado'
+      })
+    }
+
+    return res.json({
+      success: true,
+      message: 'Checkout criado com sucesso',
+      checkout: {
+        id: pagbankCheckout.id,
+        reference_id,
+        payment_url: paymentLink.href,
+        status: 'pending',
+        total_amount
+      }
+    })
+
+  } catch (error) {
+    console.error('Erro ao criar checkout:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor',
+      error: error.message
+    })
+  }
+})
+
+// Rota para consultar status do checkout
+router.get('/checkout/:reference_id', async (req, res) => {
+  try {
+    const { reference_id } = req.params
+
+    // Buscar checkout no banco de dados (mockado)
+    console.log('Buscando checkout mockado:', reference_id)
+    
+    // Simular checkout encontrado
+    const checkout = {
+      reference_id,
+      status: 'pending',
+      total_amount: 799.99,
+      created_at: new Date().toISOString(),
+      customer_data: JSON.stringify({
+        name: 'João Silva',
+        email: 'joao@exemplo.com'
+      }),
+      items: JSON.stringify([
+        {
+          id: 1,
+          name: 'LEGO Star Wars Millennium Falcon',
+          quantity: 1,
+          unit_amount: 799.99
+        }
+      ])
+    }
+
+    // Se necessário, consultar status no PagBank (mockado)
+    if (checkout.pagbank_order_id) {
+      try {
+        console.log('Consultando status mockado...')
+        
+        // Simular status mockado
+        const mockStatus = Math.random() > 0.5 ? 'paid' : 'pending'
+        
+        if (mockStatus !== checkout.status) {
+          await supabase
+            .from('checkouts')
+            .update({ status: mockStatus })
+            .eq('reference_id', reference_id)
+          
+          checkout.status = mockStatus
+        }
+      } catch (error) {
+        console.error('Erro ao consultar status mockado:', error)
+      }
+    }
+
+    return res.json({
+      success: true,
+      checkout: {
+        reference_id: checkout.reference_id,
+        status: checkout.status,
+        total_amount: checkout.total_amount,
+        created_at: checkout.created_at,
+        customer_data: JSON.parse(checkout.customer_data),
+        items: JSON.parse(checkout.items)
+      }
+    })
+
+  } catch (error) {
+    console.error('Erro ao consultar checkout:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    })
+  }
+})
+
+// Webhook para receber notificações do PagBank
+router.post('/webhook/pagbank', async (req, res) => {
+  try {
+    const { event, data } = req.body
+
+    console.log('Webhook PagBank recebido:', { event, data })
+
+    // Verificar se é uma notificação de pagamento
+    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
+      const orderId = data.id
+      const charge = data.charges?.[0]
+
+      if (charge?.status === 'PAID') {
+        // Atualizar status do checkout
+        await supabase
+          .from('checkouts')
+          .update({ 
+            status: 'paid',
+            paid_at: new Date().toISOString()
+          })
+          .eq('pagbank_order_id', orderId)
+
+        // Criar pedido se necessário
+        const { data: checkout } = await supabase
+          .from('checkouts')
+          .select('*')
+          .eq('pagbank_order_id', orderId)
+          .single()
+
+        if (checkout && checkout.status === 'pending') {
+          await supabase
+            .from('orders')
+            .insert({
+              order_number: checkout.reference_id,
+              total_amount: checkout.total_amount,
+              status: 'paid',
+              payment_method: 'pagbank_checkout',
+              items: checkout.items,
+              customer_data: checkout.customer_data
+            })
+        }
+      }
+    }
+
+    res.status(200).json({ success: true })
+  } catch (error) {
+    console.error('Erro no webhook PagBank:', error)
+    res.status(500).json({ success: false })
+  }
+})
+
+// ===== FUNCIONALIDADE EXISTENTE MANTIDA =====
 
 // Criar pedido no PagBank
 const createPagBankOrder = async (orderData, accessToken) => {

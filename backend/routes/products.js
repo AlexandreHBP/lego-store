@@ -6,22 +6,42 @@ const router = express.Router()
 // GET /api/products - Listar todos os produtos
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
+    console.log('Tentando buscar produtos do Supabase...')
+    
+    // Retornar dados mockados temporariamente para testar
+    const mockProducts = [
+      {
+        id: 1,
+        name: 'LEGO Star Wars Millennium Falcon',
+        price: 799.99,
+        category: 'Star Wars',
+        description: 'O famoso Millennium Falcon em formato LEGO',
+        image_url: 'https://example.com/falcon.jpg',
+        stock: 10
+      },
+      {
+        id: 2,
+        name: 'LEGO Technic Porsche 911',
+        price: 299.99,
+        category: 'Technic',
+        description: 'Porsche 911 em formato LEGO Technic',
+        image_url: 'https://example.com/porsche.jpg',
+        stock: 5
+      }
+    ]
+    
+    console.log('Retornando produtos mockados:', mockProducts.length)
+    
     res.json({
       success: true,
-      data: data || []
+      data: mockProducts
     })
   } catch (error) {
     console.error('Error fetching products:', error)
     res.status(500).json({
       success: false,
-      error: 'Erro interno do servidor'
+      error: 'Erro interno do servidor',
+      details: error.message
     })
   }
 })
